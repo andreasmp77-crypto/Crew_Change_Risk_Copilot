@@ -1,0 +1,1154 @@
+{
+  "name": "Demo Cases Generator for Crew Travel Copilot",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -624,
+        -96
+      ],
+      "id": "efb3d718-8f0b-4b5a-8032-8f55e06f4822",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appLCfLzhk3hA9NPy",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblWIKzwBjgFWvQdB",
+          "mode": "list",
+          "cachedResultName": "Crew Change Plans",
+          "cachedResultUrl": "https://airtable.com/appLCfLzhk3hA9NPy/tblWIKzwBjgFWvQdB"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        -288
+      ],
+      "id": "b5453c28-42b1-4a1f-a3f7-cc3fab739825",
+      "name": "Get Existing Crew Change Plans",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Q5WIJaIStPsdNnBz",
+          "name": "Andreas_Crew Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appLCfLzhk3hA9NPy",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblW7F4Ra7qXI2elH",
+          "mode": "list",
+          "cachedResultName": "Airports",
+          "cachedResultUrl": "https://airtable.com/appLCfLzhk3hA9NPy/tblW7F4Ra7qXI2elH"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        -96
+      ],
+      "id": "8cba2b20-357a-49c4-a174-90d0ba8669de",
+      "name": "Get Demo Airports",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Q5WIJaIStPsdNnBz",
+          "name": "Andreas_Crew Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appLCfLzhk3hA9NPy",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblt6CJqAnRmqAIrz",
+          "mode": "list",
+          "cachedResultName": "Ports",
+          "cachedResultUrl": "https://airtable.com/appLCfLzhk3hA9NPy/tblt6CJqAnRmqAIrz"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        112
+      ],
+      "id": "f3788a4d-cee9-4efa-9b9c-971dca827f56",
+      "name": "Get Demo Ports",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Q5WIJaIStPsdNnBz",
+          "name": "Andreas_Crew Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -160,
+        -192
+      ],
+      "id": "58a4510c-3ba8-457b-b30d-0a37d558036a",
+      "name": "Merge Cases & Airports"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        -80
+      ],
+      "id": "2a7d5384-20be-48ca-ae19-96551bf27824",
+      "name": "Merge Reference Data"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "from datetime import datetime, timedelta\nimport random\nimport re\n\n# --------------------------------------------------\n# READ INCOMING ITEMS FROM PREVIOUS NODE\n# --------------------------------------------------\n\nitems = _items\n\n\n# --------------------------------------------------\n# SEPARATE THE THREE DATASETS\n# --------------------------------------------------\n\nexisting_cases = []\nairports = []\nports = []\n\nfor item in items:\n    data = item[\"json\"]\n    fields = data.get(\"fields\", {})\n\n    if \"crew_change_id\" in fields:\n        existing_cases.append({\n            \"id\": data.get(\"id\"),\n            **fields\n        })\n\n    elif \"airport_name\" in fields:\n        airports.append({\n            \"id\": data.get(\"id\"),\n            **fields\n        })\n\n    elif \"port_name\" in fields:\n        ports.append({\n            \"id\": data.get(\"id\"),\n            **fields\n        })\n\n\n# --------------------------------------------------\n# BASIC VALIDATION\n# --------------------------------------------------\n\nif not existing_cases:\n    raise Exception(\n        \"Validation failed: No existing Crew Change Plans found.\"\n    )\n\nif not airports:\n    raise Exception(\n        \"Validation failed: No demo Airports found.\"\n    )\n\nif not ports:\n    raise Exception(\n        \"Validation failed: No demo Ports found.\"\n    )\n\n\n# --------------------------------------------------\n# FIND NEXT CREW CHANGE ID\n# --------------------------------------------------\n\nexisting_numbers = []\n\nfor case in existing_cases:\n    case_id = case.get(\"crew_change_id\", \"\")\n    match = re.search(r\"CC-(\\d+)\", case_id)\n\n    if match:\n        existing_numbers.append(int(match.group(1)))\n\nif not existing_numbers:\n    raise Exception(\n        \"Validation failed: Could not determine existing \"\n        \"Crew Change ID sequence.\"\n    )\n\nnext_number = max(existing_numbers) + 1\n\n\n# --------------------------------------------------\n# HELPER FUNCTIONS\n# --------------------------------------------------\n\ndef get_record_id(record):\n    return record.get(\"id\")\n\n\ndef random_airport(exclude_ids=None):\n    if exclude_ids is None:\n        exclude_ids = []\n\n    available = [\n        airport\n        for airport in airports\n        if airport.get(\"id\") not in exclude_ids\n    ]\n\n    if not available:\n        raise Exception(\n            \"Validation failed: No available airport after exclusions.\"\n        )\n\n    return random.choice(available)\n\n\ndef format_airtable_datetime(value):\n    \"\"\"\n    Format datetime for Airtable DateTime fields.\n    Output example:\n    2026-09-10T09:07:43Z\n    \"\"\"\n    return value.strftime(\"%Y-%m-%dT%H:%M:%SZ\")\n\n\n# --------------------------------------------------\n# GENERATE 5 NEW DEMO CASES\n# --------------------------------------------------\n\nNUM_CASES = 5\n\nranks = [\n    \"Master\",\n    \"Chief Officer\",\n    \"Second Officer\",\n    \"Chief Engineer\",\n    \"Second Engineer\",\n    \"Third Engineer\",\n    \"Electrician\",\n    \"Bosun\",\n    \"Able Seafarer\",\n    \"Cook\"\n]\n\nmovement_types = [\n    \"Joining\",\n    \"Sign Off\"\n]\n\nvisa_statuses = [\n    \"Verified\",\n    \"Verified\",\n    \"Pending verification\",\n    \"Manual specialist check\",\n    \"Potential issue\"\n]\n\nticket_statuses = [\n    \"Not requested\",\n    \"Quoted\",\n    \"Reserved\",\n    \"Ticketed\"\n]\n\nvessel_eta_confidence_values = [\n    \"High\",\n    \"High\",\n    \"Medium\",\n    \"Medium\"\n]\n\ngenerated_cases = []\n\n\n# Use a future date for the demo\nbase_date = datetime.now() + timedelta(days=7)\n\n\n# --------------------------------------------------\n# CREATE INDIVIDUAL CASES\n# --------------------------------------------------\n\nfor i in range(NUM_CASES):\n\n    # Select a demo port\n    port = random.choice(ports)\n    port_id = get_record_id(port)\n\n    # Get the port's default destination airport\n    destination_links = port.get(\n        \"default_destination_airport\",\n        []\n    )\n\n    if not destination_links:\n        raise Exception(\n            f\"Validation failed: Port \"\n            f\"{port.get('port_name')} \"\n            \"has no default destination airport.\"\n        )\n\n    destination_airport_id = destination_links[0]\n\n    # Select origin airport\n    origin = random_airport(\n        exclude_ids=[destination_airport_id]\n    )\n\n    # Select connection airport\n    connection = random_airport(\n        exclude_ids=[\n            destination_airport_id,\n            origin.get(\"id\")\n        ]\n    )\n\n    # --------------------------------------------------\n    # CREATE VARIED DEMO SCENARIOS\n    # --------------------------------------------------\n\n    scenario = i + 1\n\n    number_of_connections = (\n        1 if scenario in [1, 2] else 2\n    )\n\n    # Different connection times\n    connection_minutes_options = [\n        180,\n        120,\n        75,\n        55,\n        40\n    ]\n\n    shortest_connection_minutes = (\n        connection_minutes_options[i]\n    )\n\n    # Different buffers before reporting deadline\n    arrival_buffer_options = [\n        600,\n        360,\n        240,\n        120,\n        60\n    ]\n\n    arrival_buffer = arrival_buffer_options[i]\n\n    # Different port transfer times\n    port_transfer_options = [\n        45,\n        60,\n        75,\n        90,\n        120\n    ]\n\n    port_transfer_minutes = (\n        port_transfer_options[i]\n    )\n\n\n    # --------------------------------------------------\n    # CREATE TRAVEL SCHEDULE\n    # --------------------------------------------------\n\n    departure = (\n        base_date + timedelta(days=i)\n    )\n\n    travel_duration_hours = (\n        12 + (number_of_connections * 4)\n    )\n\n    arrival = departure + timedelta(\n        hours=travel_duration_hours\n    )\n\n    reporting_deadline = arrival + timedelta(\n        minutes=arrival_buffer\n    )\n\n    vessel_eta = reporting_deadline + timedelta(\n        hours=6\n    )\n\n\n    # --------------------------------------------------\n    # CREATE CREW CHANGE CASE\n    # --------------------------------------------------\n\n    case = {\n\n        # Identification\n        \"crew_change_id\": (\n            f\"CC-{next_number + i:04d}\"\n        ),\n\n        # Airtable Date-only field\n        \"plan_created_date\": datetime.now().strftime(\n            \"%Y-%m-%d\"\n        ),\n\n        \"vessel_code\": (\n            f\"VSL-{((next_number + i - 1) % 10) + 1:03d}\"\n        ),\n\n        \"seafarer_id\": (\n            f\"SEA-{random.randint(1, 150):04d}\"\n        ),\n\n        \"rank\": random.choice(ranks),\n\n        \"movement_type\": random.choice(\n            movement_types\n        ),\n\n\n        # ----------------------------------------------\n        # LINKED AIRTABLE RECORDS\n        # ----------------------------------------------\n\n        \"origin_airport\": [\n            origin.get(\"id\")\n        ],\n\n        \"connection_airport\": [\n            connection.get(\"id\")\n        ],\n\n        \"destination_airport\": [\n            destination_airport_id\n        ],\n\n        \"joining_port\": [\n            port_id\n        ],\n\n\n        # ----------------------------------------------\n        # TRAVEL DETAILS\n        # ----------------------------------------------\n\n        \"number_of_connections\": (\n            number_of_connections\n        ),\n\n        \"shortest_connection_minutes\": (\n            shortest_connection_minutes\n        ),\n\n\n        # Airtable DateTime fields\n        \"scheduled_departure\": (\n            format_airtable_datetime(departure)\n        ),\n\n        \"scheduled_arrival\": (\n            format_airtable_datetime(arrival)\n        ),\n\n        \"vessel_eta\": (\n            format_airtable_datetime(vessel_eta)\n        ),\n\n        \"reporting_deadline\": (\n            format_airtable_datetime(reporting_deadline)\n        ),\n\n        \"port_transfer_minutes\": (\n            port_transfer_minutes\n        ),\n\n\n        # ----------------------------------------------\n        # OPERATIONAL READINESS\n        # ----------------------------------------------\n\n        \"port_agent_confirmed\": random.choice(\n            [True, True, True, False]\n        ),\n\n        \"vessel_eta_confidence\": random.choice(\n            vessel_eta_confidence_values\n        ),\n\n        \"visa_status\": random.choice(\n            visa_statuses\n        ),\n\n        \"ticket_status\": random.choice(\n            ticket_statuses\n        ),\n\n        \"documents_verified\": random.choice(\n            [True, True, True, False]\n        ),\n\n        \"passport_valid\": True,\n\n        \"medical_valid\": True,\n\n        \"estimated_travel_cost_eur\": random.randint(\n            700,\n            1800\n        ),\n\n\n        # ----------------------------------------------\n        # MVP PROCESSING CONTROL\n        # ----------------------------------------------\n\n        \"processing_status\": \"New\"\n    }\n\n    generated_cases.append(case)\n\n\n# --------------------------------------------------\n# FINAL VALIDATION\n# --------------------------------------------------\n\nif len(generated_cases) != NUM_CASES:\n    raise Exception(\n        f\"Generation failed: Expected {NUM_CASES} \"\n        f\"cases but generated {len(generated_cases)}.\"\n    )\n\n\n# --------------------------------------------------\n# RETURN ONE N8N ITEM PER CASE\n# --------------------------------------------------\n\nreturn [\n    {\"json\": case}\n    for case in generated_cases\n]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -80
+      ],
+      "id": "1ed729fe-52fd-426a-981d-4fabeadef1c4",
+      "name": "Generate 5 New Demo Cases"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appLCfLzhk3hA9NPy",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblWIKzwBjgFWvQdB",
+          "mode": "list",
+          "cachedResultName": "Crew Change Plans",
+          "cachedResultUrl": "https://airtable.com/appLCfLzhk3hA9NPy/tblWIKzwBjgFWvQdB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "port_agent_confirmed": "={{ $json.port_agent_confirmed }}",
+            "passport_valid": "={{ $json.passport_valid }}",
+            "medical_valid": "={{ $json.medical_valid }}",
+            "documents_verified": "={{ $json.documents_verified }}",
+            "crew_change_completed": false,
+            "crew_change_id": "={{ $json.crew_change_id }}",
+            "vessel_code": "={{ $json.vessel_code }}",
+            "seafarer_id": "={{ $json.seafarer_id }}",
+            "rank": "={{ $json.rank }}",
+            "movement_type": "={{ $json.movement_type }}",
+            "origin_airport": "={{ $json.origin_airport }}",
+            "connection_airport": "={{ $json.connection_airport }}",
+            "destination_airport": "={{ $json.destination_airport }}",
+            "joining_port": "={{ $json.joining_port }}",
+            "number_of_connections": "={{ $json.number_of_connections }}",
+            "shortest_connection_minutes": "={{ $json.shortest_connection_minutes }}",
+            "port_transfer_minutes": "={{ $json.port_transfer_minutes }}",
+            "vessel_eta_confidence": "={{ $json.vessel_eta_confidence }}",
+            "visa_status": "={{ $json.visa_status }}",
+            "ticket_status": "={{ $json.ticket_status }}",
+            "estimated_travel_cost_eur": "={{ $json.estimated_travel_cost_eur }}",
+            "processing_status": "={{ $json.processing_status }}",
+            "arrival_buffer_minutes": 0,
+            "risk_score": 0,
+            "actual_delay_minutes": 0,
+            "additional_cost_eur": 0,
+            "live_operational_risk_score": 0,
+            "scheduled_departure": "={{ $json.scheduled_departure }}",
+            "scheduled_arrival": "={{ $json.scheduled_arrival }}",
+            "vessel_eta": "={{ $json.vessel_eta }}",
+            "reporting_deadline": "={{ $json.reporting_deadline }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "crew_change_id",
+              "displayName": "crew_change_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "plan_created_date",
+              "displayName": "plan_created_date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "vessel_code",
+              "displayName": "vessel_code",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "seafarer_id",
+              "displayName": "seafarer_id",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "rank",
+              "displayName": "rank",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Master",
+                  "value": "Master"
+                },
+                {
+                  "name": "Chief Officer",
+                  "value": "Chief Officer"
+                },
+                {
+                  "name": "Second Officer",
+                  "value": "Second Officer"
+                },
+                {
+                  "name": "Chief Engineer",
+                  "value": "Chief Engineer"
+                },
+                {
+                  "name": "Second Engineer",
+                  "value": "Second Engineer"
+                },
+                {
+                  "name": "Third Engineer",
+                  "value": "Third Engineer"
+                },
+                {
+                  "name": "Electrician",
+                  "value": "Electrician"
+                },
+                {
+                  "name": "Bosun",
+                  "value": "Bosun"
+                },
+                {
+                  "name": "Able Seafarer",
+                  "value": "Able Seafarer"
+                },
+                {
+                  "name": "Cook",
+                  "value": "Cook"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "movement_type",
+              "displayName": "movement_type",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Joining",
+                  "value": "Joining"
+                },
+                {
+                  "name": "Sign Off",
+                  "value": "Sign Off"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "origin_airport",
+              "displayName": "origin_airport",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "connection_airport",
+              "displayName": "connection_airport",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "destination_airport",
+              "displayName": "destination_airport",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "number_of_connections",
+              "displayName": "number_of_connections",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "shortest_connection_minutes",
+              "displayName": "shortest_connection_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "scheduled_departure",
+              "displayName": "scheduled_departure",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "scheduled_arrival",
+              "displayName": "scheduled_arrival",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "estimated_travel_cost_eur",
+              "displayName": "estimated_travel_cost_eur",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "joining_port",
+              "displayName": "joining_port",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "vessel_eta",
+              "displayName": "vessel_eta",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reporting_deadline",
+              "displayName": "reporting_deadline",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "port_transfer_minutes",
+              "displayName": "port_transfer_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "port_agent_confirmed",
+              "displayName": "port_agent_confirmed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "vessel_eta_confidence",
+              "displayName": "vessel_eta_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "High",
+                  "value": "High"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "Low",
+                  "value": "Low"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "passport_country_code",
+              "displayName": "passport_country_code",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "passport_valid",
+              "displayName": "passport_valid",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "visa_status",
+              "displayName": "visa_status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Verified",
+                  "value": "Verified"
+                },
+                {
+                  "name": "Pending verification",
+                  "value": "Pending verification"
+                },
+                {
+                  "name": "Manual specialist check",
+                  "value": "Manual specialist check"
+                },
+                {
+                  "name": "Potential issue",
+                  "value": "Potential issue"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "medical_valid",
+              "displayName": "medical_valid",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "documents_verified",
+              "displayName": "documents_verified",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ticket_status",
+              "displayName": "ticket_status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Not requested",
+                  "value": "Not requested"
+                },
+                {
+                  "name": "Quoted",
+                  "value": "Quoted"
+                },
+                {
+                  "name": "Reserved",
+                  "value": "Reserved"
+                },
+                {
+                  "name": "Ticketed",
+                  "value": "Ticketed"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "airport_delay_risk",
+              "displayName": "airport_delay_risk",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "weather_risk",
+              "displayName": "weather_risk",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "route_complexity",
+              "displayName": "route_complexity",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "arrival_buffer_minutes",
+              "displayName": "arrival_buffer_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_score",
+              "displayName": "risk_score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_level",
+              "displayName": "risk_level",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Low",
+                  "value": "Low"
+                },
+                {
+                  "name": "Medium",
+                  "value": "Medium"
+                },
+                {
+                  "name": "High",
+                  "value": "High"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_reasons",
+              "displayName": "risk_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ai_risk_briefing",
+              "displayName": "ai_risk_briefing",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "human_review_status",
+              "displayName": "human_review_status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Not reviewed",
+                  "value": "Not reviewed"
+                },
+                {
+                  "name": "Reviewing",
+                  "value": "Reviewing"
+                },
+                {
+                  "name": "Accepted",
+                  "value": "Accepted"
+                },
+                {
+                  "name": "Override",
+                  "value": "Override"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "actual_outcome",
+              "displayName": "actual_outcome",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "On time",
+                  "value": "On time"
+                },
+                {
+                  "name": "Delayed but completed",
+                  "value": "Delayed but completed"
+                },
+                {
+                  "name": "Rebooked",
+                  "value": "Rebooked"
+                },
+                {
+                  "name": "Failed crew change",
+                  "value": "Failed crew change"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "actual_delay_minutes",
+              "displayName": "actual_delay_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "crew_change_completed",
+              "displayName": "crew_change_completed",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "additional_cost_eur",
+              "displayName": "additional_cost_eur",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "outcome_reason",
+              "displayName": "outcome_reason",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "No disruption",
+                  "value": "No disruption"
+                },
+                {
+                  "name": "Flight delay",
+                  "value": "Flight delay"
+                },
+                {
+                  "name": "Flight cancellation",
+                  "value": "Flight cancellation"
+                },
+                {
+                  "name": "Missed connection",
+                  "value": "Missed connection"
+                },
+                {
+                  "name": "Document issue",
+                  "value": "Document issue"
+                },
+                {
+                  "name": "Vessel ETA change",
+                  "value": "Vessel ETA change"
+                },
+                {
+                  "name": "Port transfer issue",
+                  "value": "Port transfer issue"
+                },
+                {
+                  "name": "Severe weather",
+                  "value": "Severe weather"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "destination_delay_risk_public",
+              "displayName": "destination_delay_risk_public",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "destination_delay_minutes_public",
+              "displayName": "destination_delay_minutes_public",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "live_operational_risk_score",
+              "displayName": "live_operational_risk_score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "live_operational_risk_level",
+              "displayName": "live_operational_risk_level",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "live_risk_reasons",
+              "displayName": "live_risk_reasons",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "live_weather_summary",
+              "displayName": "live_weather_summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_assessed_at",
+              "displayName": "risk_assessed_at",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "assessment_status",
+              "displayName": "assessment_status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notion_report_url",
+              "displayName": "notion_report_url",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "ai_recommendation",
+              "displayName": "ai_recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ai_recommendation_rationale",
+              "displayName": "ai_recommendation_rationale",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "processing_status",
+              "displayName": "processing_status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "New",
+                  "value": "New"
+                },
+                {
+                  "name": "Processing",
+                  "value": "Processing"
+                },
+                {
+                  "name": "Completed",
+                  "value": "Completed"
+                },
+                {
+                  "name": "Error",
+                  "value": "Error"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -80
+      ],
+      "id": "f8a42904-00f3-4317-93c7-2c988996e96f",
+      "name": "Create a record1",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Q5WIJaIStPsdNnBz",
+          "name": "Andreas_Crew Airtable Personal Access Token"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Crew Change Plans",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Demo Airports",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Demo Ports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Crew Change Plans": {
+      "main": [
+        [
+          {
+            "node": "Merge Cases & Airports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Demo Airports": {
+      "main": [
+        [
+          {
+            "node": "Merge Cases & Airports",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Cases & Airports": {
+      "main": [
+        [
+          {
+            "node": "Merge Reference Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Demo Ports": {
+      "main": [
+        [
+          {
+            "node": "Merge Reference Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Reference Data": {
+      "main": [
+        [
+          {
+            "node": "Generate 5 New Demo Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate 5 New Demo Cases": {
+      "main": [
+        [
+          {
+            "node": "Create a record1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "94fd348c-30d6-4969-9c7e-ccff1311bd5e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "00cafa1eb8a383ac595b6bbf54c5f8acd05d9d1462911bd4a0edac031509b829"
+  },
+  "id": "XhirQe0nW7dTPX1l",
+  "tags": []
+}
