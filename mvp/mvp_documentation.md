@@ -5,360 +5,474 @@
 - Date: 2026-09-04
 ---
 
-
 # MVP Documentation — Crew Change Risk Copilot
 
 ## 1. MVP Overview
 
-The **Crew Change Risk Copilot** is intended to support maritime crewing teams by identifying upcoming crew-change cases that may require earlier attention and by explaining the operational factors contributing to the identified risk.
+The Crew Change Risk Copilot is a human-in-the-loop decision-support MVP for maritime crewing teams.
 
-The Round 1 Proof of Concept (PoC) was implemented in **n8n** and demonstrated the core concept using a single crew-change case.
+It helps users identify upcoming crew-change cases that may require attention, understand the main operational risk drivers, and review an AI-generated operational briefing.
 
-During Round 2, an attempt was made to extend the n8n workflow to process a batch of approximately 5–10 new crew-change cases and produce a management-level summary.
+The MVP is implemented in n8n and uses Airtable as the operational data store, external operational context, deterministic risk rules, OpenAI for AI interpretation, Notion for human-readable reporting, and LangSmith for monitoring.
 
-The batch-processing extension exposed significant workflow and data-structure limitations within the available development time.
-
-As a result, the n8n implementation remains the validated **PoC**, while the recommended MVP / production implementation would use a more suitable coded architecture, likely **Python + LangGraph**.
+The MVP is a functional capstone demonstrator. It is not a production-ready operational system.
 
 ---
 
-## 2. What the PoC Demonstrates
+## 2. Demo Prerequisite — Generate 5 New Cases
 
-The Round 1 n8n workflow demonstrates the following end-to-end concept:
+**The Demo Cases Generator workflow must be run first.**
+
+Workflow:
+
+`Demo Cases Generator for Crew Travel Copilot`
+
+Purpose:
+
+- create 5 new synthetic crew-change cases;
+- assign new Crew Change IDs;
+- use the existing Airtable airport and port reference data;
+- create varied travel and operational conditions;
+- set the new records to `processing_status = New`.
+
+This provides fresh cases for the main MVP workflow to analyse.
+
+### Demo sequence
 
 ```text
-Crew Change Record
+1. Run "Demo Cases Generator for Crew Travel Copilot"
+                    ↓
+2. 5 new Crew Change Plans created in Airtable
+                    ↓
+3. Run "Crew Change Copilot - MVP"
+                    ↓
+4. Risk analysis + external context + AI briefing
+                    ↓
+5. Airtable updated
+                    ↓
+6. Notion report created
+                    ↓
+7. LangSmith monitoring record created
+````
+
+The generator is intended for the capstone demonstration environment and uses synthetic/demo data.
+
+---
+
+## 3. MVP Workflow
+
+The main workflow is:
+
+`Crew Change Copilot - MVP`
+
+The workflow starts by retrieving Crew Change Plans where:
+
+```text
+processing_status = New
+```
+
+The records are then normalised before risk assessment.
+
+### End-to-end flow
+
+```text
+New Crew Change Plans
         ↓
-Airport Information
+Normalize Crew Change Data
+        ↓
+Deterministic Operational Risk Assessment
+        ↓
+Airport & Port Context
         ↓
 Live Weather Data
         ↓
-Data Preparation
+Merge Operational Context
         ↓
-Deterministic Risk Assessment
+Prepare AI Input
         ↓
-Risk Score + Risk Drivers
+LLM Interpretation
         ↓
-AI Interpretation
+Structured Risk Briefing
         ↓
-Operational Risk Briefing
+Airtable Update
         ↓
-Human Review
-````
-
-The workflow combines operational data with external context and applies deterministic risk rules before using an LLM to interpret the results.
-
-The PoC demonstrated that the system can:
-
-* retrieve a crew-change record;
-* retrieve relevant airport information;
-* obtain live weather information;
-* calculate an operational risk score;
-* classify the case as Low / Medium / High risk;
-* identify contributing risk factors;
-* generate an AI-assisted operational briefing;
-* store the result for human review.
-
-The PoC therefore validates the core business and technical concept.
-
----
-
-## 3. Round 2 MVP Development
-
-The intended Round 2 MVP direction was to move from a single-case workflow toward a more realistic **management-by-exception** process.
-
-The intended process was:
-
-```text
-Generate New Crew-Change Cases
+Notion Report
         ↓
-Batch Risk Analysis
-        ↓
-Risk Prioritisation
-        ↓
-Database Update
-        ↓
-Management Summary
-        ↓
-Human Review
-        ↓
-Morning Crewing Briefing
+LangSmith Monitoring
 ```
 
-The goal was to demonstrate how a Crew Manager could review several newly created or upcoming crew-change cases and focus attention on those with the highest operational risk.
+---
+
+## 4. Data Sources
+
+The MVP uses:
+
+### Airtable
+
+Airtable provides the main operational data for the demonstration.
+
+The Crew Change Plans table contains information including:
+
+* Crew Change ID
+* vessel
+* seafarer/rank
+* movement type
+* origin / connection / destination airports
+* joining port
+* connection time
+* reporting deadline
+* vessel ETA
+* port transfer time
+* visa status
+* ticket status
+* document verification
+* vessel ETA confidence
+* processing status
+
+Airport and port reference information is stored in separate Airtable tables.
+
+### External weather data
+
+The workflow retrieves current weather information for:
+
+* the origin airport;
+* the joining port.
+
+The weather data is used as additional operational context.
+
+### Public operational context
+
+The workflow also uses available public airport delay context stored with the crew-change data.
 
 ---
 
-## 4. Technical Findings
+## 5. Deterministic Risk Assessment
 
-The batch-processing implementation was explored using n8n.
+The initial operational risk score is calculated using explicit business rules.
 
-The main technical challenge was the **structure and schema of the data moving between workflow nodes**.
+The workflow evaluates factors including:
 
-When processing multiple records, the workflow required increasingly frequent data transformation, cleaning and parsing between nodes.
+* flight connection time;
+* destination airport delay risk;
+* airport-to-port transfer time;
+* vessel ETA confidence;
+* visa status;
+* document verification;
+* port agent confirmation;
+* ticket status.
 
-As a result, Python Code nodes had to be introduced at several points to reshape and prepare data before it could be consumed by subsequent nodes.
+Each factor can add points to the risk score.
 
-This increased workflow complexity and created additional points of failure.
+The workflow then assigns a risk level:
 
-The batch workflow experienced repeated execution problems during development.
+| Risk score | Risk level |
+| ---------- | ---------- |
+| 0–14       | Low        |
+| 15–29      | Medium     |
+| 30–49      | High       |
+| 50+        | Critical   |
 
-The main issues identified were:
+The deterministic layer produces:
 
-* inconsistent data structures between nodes;
-* schema changes and data-shape mismatches;
-* repeated data cleaning and parsing;
-* increasing complexity as multiple records were processed;
-* difficulty maintaining a consistent schema throughout the workflow;
-* repeated execution failures requiring manual troubleshooting; and
-* limited time available to stabilise the extended workflow.
+* risk score;
+* risk level;
+* risk signals;
+* recommended attention level.
 
-The conclusion was that continuing to increase the complexity of the n8n workflow was not the most effective way to deliver a reliable MVP within the project timeframe.
-
----
-
-## 5. MVP Scope Decision
-
-The project timeframe for this development stage was approximately **2–3 days**.
-
-Within this timeframe, building and reliably testing a more advanced multi-case application in n8n was not considered realistic.
-
-The MVP scope was therefore narrowed.
-
-The project will retain the working n8n workflow as the **validated Proof of Concept** and use its findings to define the architecture for the next implementation stage.
-
-This is a deliberate scope decision rather than a change to the business use case.
-
-The **Crew Change Risk Copilot** remains the selected use case.
+The score is calculated before the LLM is called.
 
 ---
 
-## 6. Proposed MVP / Production Architecture
+## 6. AI Interpretation
 
-The next implementation should evaluate a coded architecture, most likely:
+The LLM does not calculate the operational risk score.
 
-**Python + LangGraph**
+Instead, it interprets the structured operational information already produced by the deterministic layer.
 
-Python would provide stronger control over:
+The AI is instructed to:
 
-* data structures and schemas;
-* data validation;
-* data transformation;
-* batch processing;
-* deterministic risk calculations;
-* error handling;
-* testing; and
-* integration with external systems.
+* use only the supplied information;
+* not recalculate or modify the risk score;
+* not invent missing information;
+* explain the main risk drivers;
+* provide practical recommendations;
+* clearly distinguish assessment from recommendation;
+* recommend human review for high-risk situations.
 
-LangGraph could be used to orchestrate the AI-related stages of the workflow while maintaining state and supporting human-in-the-loop processes.
-
-A future application layer could then provide a dedicated interface for Crew Managers.
-
-Conceptually:
+The AI output is structured as:
 
 ```text
-Operational Data
-      ↓
-Data Validation
-      ↓
-Risk Assessment
-      ↓
-Risk Prioritisation
-      ↓
-AI Interpretation
-      ↓
-Management Summary
-      ↓
-Human Review
-      ↓
-Operational Action
+Executive Assessment
+Key Risk Drivers
+Recommended Actions
+AI Recommendation
+Recommendation Rationale
+Assessment Limitation
 ```
 
-The final production architecture would be confirmed during a technical discovery and pilot phase.
+The current workflow uses OpenAI `gpt-4o-mini`.
 
 ---
 
-## 7. AI Capability
+## 7. Human-in-the-Loop
 
-The core AI capability demonstrated by the PoC is **AI-assisted operational risk interpretation**.
+The MVP is a decision-support system.
 
-The system does not rely on the LLM to independently calculate the operational risk score.
-
-Instead:
-
-### Deterministic layer
-
-Defined business rules identify measurable operational risk factors and calculate a risk score.
-
-### AI layer
-
-The LLM interprets the structured risk information and generates a concise operational briefing for the human user.
-
-### Human layer
-
-The Crew Manager reviews the information and decides whether operational action is required.
-
-This hybrid approach is intended to improve transparency and reduce the risk of treating an LLM-generated recommendation as an unexplained decision.
-
----
-
-## 8. Human-in-the-Loop Principle
-
-The system is designed as a **decision-support tool**.
-
-The AI should support the Crew Manager by:
-
-* identifying potentially important cases;
-* explaining the main risk drivers;
-* summarising relevant information; and
-* suggesting possible actions for consideration.
-
-The system should not autonomously:
+The AI does not autonomously:
 
 * approve or reject a crew change;
 * purchase or cancel travel;
 * change travel arrangements;
 * make employment decisions;
-* determine legal immigration status; or
+* determine legal immigration status;
 * make final operational decisions.
 
-The final operational decision remains with the human user.
+The Crew Manager remains responsible for reviewing the information and deciding what action is required.
 
 ---
 
-## 9. MVP Success Criteria
+## 8. Airtable Output
 
-The future coded MVP should demonstrate at least the following:
+After the risk assessment, the workflow updates the Crew Change Plan record with fields including:
 
-### 1. Batch Analysis
+* live operational risk score;
+* live operational risk level;
+* live risk reasons;
+* live weather summary;
+* risk assessment timestamp;
+* processing status.
 
-The system can process multiple upcoming crew-change cases in a consistent and reliable manner.
-
-### 2. Risk Prioritisation
-
-The system can identify and prioritise cases requiring attention based on defined operational risk factors.
-
-### 3. Explainability
-
-The system provides the main contributing risk factors for each prioritised case.
-
-### 4. Management Summary
-
-The system can generate a concise summary showing:
-
-* number of cases analysed;
-* number of Low / Medium / High risk cases;
-* highest-priority cases;
-* main risk drivers; and
-* suggested areas for human attention.
-
-### 5. Human Review
-
-The workflow clearly presents AI-generated information as decision support and keeps the final operational decision with the Crew Manager.
+This creates a structured record of the assessment that can be reviewed later.
 
 ---
 
-## 10. Error Handling Requirements
+## 9. Notion Reporting
 
-The current n8n batch-processing experience identified error handling and data consistency as important requirements for the next implementation.
+The workflow creates a human-readable Crew Change Report in Notion.
 
-The future MVP should therefore include:
+The report contains the AI operational risk assessment for the processed case.
 
-* input validation;
-* schema validation;
-* clear handling of missing or invalid data;
-* controlled API failures;
-* logging of processing errors;
-* retry handling where appropriate;
-* clear error messages; and
-* preservation of the original input data for investigation.
+This creates a simple reporting layer for operational review and demonstration.
 
-System outputs and processing events should also be logged and monitored so that unexpected behaviour can be investigated.
+The project currently maintains a Notion Crew Change Reports area containing generated Crew Change Risk Briefings and Crew Change Reports.
 
 ---
 
-## 11. Data Considerations
+## 10. LangSmith Monitoring
 
-The capstone project uses **public or synthetic data only**.
+The MVP sends monitoring information to LangSmith.
 
-The future production system would require a clear data model defining:
+The purpose is to demonstrate observability of the AI component, including information about:
 
-* crew-change records;
-* operational risk indicators;
-* airport information;
-* external operational data;
-* risk scores;
-* risk drivers;
-* AI-generated outputs; and
-* audit / monitoring information.
+* workflow execution;
+* model used;
+* AI assessment output;
+* execution timing;
+* workflow/source metadata.
 
-A consistent schema should be established before expanding the number of processing stages.
-
-This is one of the main technical lessons from the Round 2 n8n extension attempt.
+LangSmith is used here as a monitoring demonstration rather than as a complete production observability architecture.
 
 ---
 
-## 12. Current Status
+## 11. Demo Procedure
 
-### Validated
+For a clean demonstration, use the following order.
 
-* Crew Change Risk Copilot use case;
-* single-case operational risk workflow;
-* deterministic risk calculation;
-* external operational context integration;
-* AI-assisted interpretation;
-* structured operational briefing;
-* human-in-the-loop approach.
+### Step 1 — Generate demo cases
 
-### Not yet production-ready
+Open:
 
-* reliable batch processing;
-* scalable multi-case workflow;
-* production application interface;
-* comprehensive automated testing;
-* production-grade monitoring and logging;
-* full security controls; and
-* deployment architecture.
+`Demo Cases Generator for Crew Travel Copilot`
 
----
+Run the workflow.
 
-## 13. Development Path
+Expected result:
 
-The proposed development path is:
+**5 new synthetic Crew Change Plans** are created in Airtable with:
 
 ```text
-Round 1
-Validated n8n PoC
-        ↓
-Round 2
-Architecture and MVP definition
-        ↓
-Next Stage
-Python + LangGraph MVP
-        ↓
-Pilot
-Realistic operational validation
-        ↓
-Production
-Scalable application and integrations
+processing_status = New
 ```
 
-The n8n workflow remains an important part of the project because it validated the concept and helped identify the technical requirements for a more robust implementation.
+### Step 2 — Run the MVP
+
+Open:
+
+`Crew Change Copilot - MVP`
+
+Execute the workflow.
+
+The workflow retrieves the new records and processes them.
+
+### Step 3 — Review Airtable
+
+Confirm that the Crew Change Plans have been enriched with:
+
+* operational risk score;
+* risk level;
+* risk reasons;
+* weather information;
+* assessment timestamp;
+* processing status.
+
+### Step 4 — Review Notion
+
+Open the Crew Change Reports area and review the generated report.
+
+### Step 5 — Review LangSmith
+
+Open the LangSmith monitoring view and confirm that the AI execution information has been recorded.
 
 ---
 
-## 14. Conclusion
+## 12. Error Handling and Validation
 
-The Round 1 n8n PoC successfully demonstrated the core concept of the **Crew Change Risk Copilot**.
+The MVP includes basic validation and controlled processing logic.
 
-The Round 2 attempt to extend the workflow to batch processing provided an additional technical learning: multi-case processing with several transformations and dependencies requires stronger control of schemas, state, validation and error handling than the current low-code workflow could reliably provide within the available project timeframe.
+The Demo Cases Generator validates that:
 
-The project therefore does not continue expanding the n8n workflow indefinitely.
+* existing Crew Change Plans are available;
+* airport reference data is available;
+* port reference data is available;
+* Crew Change IDs can be determined;
+* valid airport and port references are available;
+* five cases are generated.
 
-Instead, the PoC findings are used to define the requirements for a more robust MVP implementation, likely using **Python and LangGraph**.
+The main MVP normalises input data before downstream processing.
 
-The target remains:
+The next production version should strengthen:
 
-> **New crew-change cases → Risk analysis → Prioritisation → AI briefing → Human review**
+* schema validation;
+* retry handling;
+* API failure handling;
+* structured logging;
+* monitoring and alerting;
+* test coverage;
+* failure recovery.
 
-The long-term objective is to provide Crew Managers with earlier, clearer visibility of potentially problematic crew changes while keeping operational decisions under human control.
+System inputs, outputs and processing events should be logged and monitored so unexpected behaviour can be investigated.
+
+---
+
+## 13. MVP Scope
+
+The MVP demonstrates one core capability:
+
+> **Analyse upcoming crew-change cases, prioritise operational risk, explain the main risk drivers, and provide an AI-assisted operational briefing for human review.**
+
+The MVP deliberately does not attempt to automate the entire crew-change process.
+
+Out of scope for this MVP:
+
+* autonomous travel booking;
+* autonomous travel changes;
+* immigration decisions;
+* employment decisions;
+* medical decisions;
+* guaranteed travel-success prediction;
+* production integration with live crew-management systems.
+
+---
+
+## 14. Current Limitations
+
+The MVP is a capstone demonstrator and has several limitations.
+
+### Synthetic/demo data
+
+The demonstration uses public and synthetic data rather than live client data.
+
+### Rule-based risk model
+
+The current risk score is based on explicitly defined deterministic rules. It is not a trained predictive model.
+
+### External data dependency
+
+Weather and other external information may be unavailable, delayed, or incomplete.
+
+### Limited production controls
+
+The current workflow does not represent a full production-grade architecture with comprehensive security, scalability, monitoring, testing and disaster recovery.
+
+### n8n workflow complexity
+
+The workflow contains several data transformation and merge stages. This is acceptable for the MVP demonstration, but a production implementation would require further architectural evaluation.
+
+---
+
+## 15. MVP Success Criteria
+
+The MVP is considered successful when it can:
+
+1. Generate 5 new synthetic crew-change cases for demonstration.
+2. Process the new cases through the Crew Change Copilot workflow.
+3. Calculate a deterministic operational risk score.
+4. Assign a Low / Medium / High / Critical risk level.
+5. Identify the main risk signals.
+6. Enrich cases with operational context and weather information.
+7. Generate a structured AI operational briefing.
+8. Update the Airtable record.
+9. Create a human-readable Notion report.
+10. Record AI monitoring information in LangSmith.
+11. Keep the final operational decision with the human user.
+
+---
+
+## 16. Repository Files
+
+Relevant MVP files:
+
+```text
+mvp/
+├── Demo Cases Generator for Crew Travel Copilot.json
+├── Crew Change Copilot - MVP.json
+├── mvp_documentation.md
+├── Crew Change Copilot - MVP Screenshot ...
+├── Demo Cases Generator for Crew Travel Copilot Screenshot ...
+├── MVP LangSmith Screenshot ...
+└── Notion Crew Change Reports Screenshot ...
+```
+
+---
+
+## 17. MVP Status
+
+### Working
+
+* Demo case generation
+* 5-case synthetic data generation
+* Crew-change retrieval
+* Data normalisation
+* Deterministic risk scoring
+* Risk classification
+* Airport and port enrichment
+* Live weather enrichment
+* AI risk interpretation
+* Structured AI output
+* Airtable updates
+* Notion reporting
+* LangSmith monitoring
+
+### Not production-ready
+
+* Production security
+* Full automated testing
+* High-volume scalability
+* Enterprise integration
+* Advanced observability
+* Automated recovery
+* Production deployment architecture
+
+---
+
+## 18. Conclusion
+
+The Crew Change Risk Copilot MVP demonstrates an end-to-end AI-assisted operational risk workflow for crew-change management.
+
+The demonstration begins by running the **Demo Cases Generator for Crew Travel Copilot**, which creates five new synthetic cases.
+
+The main MVP then analyses those cases using deterministic operational risk rules, enriches them with external context and live weather data, and uses an LLM to produce a concise operational briefing.
+
+The resulting information is written back to Airtable, reported in Notion and monitored through LangSmith.
+
+The solution remains a human-in-the-loop decision-support tool. It is intended to help crewing teams identify cases requiring attention earlier and understand why those cases were flagged, rather than replace professional operational judgement.
