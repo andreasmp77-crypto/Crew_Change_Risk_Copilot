@@ -214,11 +214,9 @@ The primary differentiators are:
 4. **Human-in-the-loop** — the system supports rather than replaces the Crew Manager.
 5. **Operational context** — combine crew-change information with external signals such as airport disruption and weather.
 
-Management-by-exception is relevant to the maritime operating environment because it shifts attention from constant manual oversight toward exceptions and anomalies. See the Lloyd's List article referenced in the project research: **"AI-powered management by exception may transform shipmanagement."**
+Management-by-exception is relevant to the maritime operating environment because it shifts attention from constant manual oversight toward exceptions and anomalies. See the Lloyd's List article referenced in the project research: **"AI-powered management by exception may transform shipmanagement."** 
 
 The importance of crew changes to seafarer wellbeing and operational continuity is also reflected in IMO guidance on **crew changes and repatriation of seafarers**. This source is useful for explaining why reliable crew-change planning is not only a logistics issue but also a crew welfare and operational concern.
-
-**These two sources should also be referenced briefly in the final presentation, particularly when explaining the business rationale and the management-by-exception differentiator.**
 
 ---
 
@@ -433,18 +431,3 @@ Optional Scale
 The project should scale only when evidence from the Pilot demonstrates that the solution is useful, reliable, trusted and commercially justified.
 
 ---
-
-## 12. Presentation Linkage
-
-The final presentation should reinforce the same strategic story rather than introduce separate assumptions.
-
-A concise strategy message for the presentation is:
-
-> **The PoC proved the concept. The Pilot will prove the value. Full deployment will depend on the evidence.**
-
-The presentation should also briefly reference the two industry sources used to support the rationale:
-
-- **IMO — crew changes and repatriation of seafarers:** supports the importance of crew-change planning for seafarer wellbeing, safety and operational continuity.
-- **Lloyd's List — "AI-powered management by exception may transform shipmanagement":** supports the management-by-exception direction and the idea of using technology to bring relevant exceptions to human attention.
-
-These references should be used as supporting evidence, not as claims that the proposed solution has already been validated by those organisations.
